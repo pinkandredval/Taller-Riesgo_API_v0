@@ -21,6 +21,8 @@
 | H6 | `POST /score` con datos válidos devuelve `"puntaje": null` | El modelo no se carga correctamente y el método `puntuar()` falla; se carga dentro del handler |  | `main.py` y `dominio.py` | `$body = @{poliza="POL-2026-0413"; monto=15000; antiguedad=3} \| ConvertTo-Json; Invoke-WebRequest -UseBasicParsing -Method POST -Uri http://localhost:8000/score -Body $body -ContentType "application/json"` | `StatusCode: 200`<br><br>`StatusDescription : OK`<br><br>`Content: {"poliza":"POL-2026-0413"`<br><br>`"puntaje":null`<br><br>`"alto_riesgo":false}`<br><br>` RawContent        : HTTP/1.1 200 OK `<br><br>` Content-Length: 61 `<br><br>` Content-Type: application/json `<br><br>` Date: Thu, 27 Aug 2026 14:41:28 GMT `<br><br>` Server: uvicorn `<br><br>` {"poliza":"POL-2026-0413","puntaje":null,"alto_riesgo":false}` | Se verificó en `dominio.py` que el método `puntuar()` requiere el campo `"siniestros_previos"`, el cual faltaba en el body. Se corrigió el envío: `$body = @{poliza="POL-2026-0413"; monto=15000; antiguedad=3; siniestros_previos=0} \| ConvertTo-Json`. Además, se movió la carga del modelo (`pickle.load`) al inicio de `main.py` con bloque `try/except`, siguiendo la buena práctica de cargarlo una sola vez al levantar el servicio. |
 | H7 | | | | | | | |
 | H8 | | | | | | | |
+| H9 | | | | | | | |
+
 
 
 **Reglas que se verifican automáticamente:**
