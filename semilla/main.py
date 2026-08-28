@@ -6,13 +6,26 @@ import pickle
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, Response
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Request
 
 import config
 from dominio import EvaluadorRiesgo, buscar_siniestro, cargar_siniestros
 
 BASE = Path(__file__).parent
-app = FastAPI(title="Riesgo API", version="0.1.0")
+
+# ===== Carga del modelo UNA SOLA VEZ al arrancar =====
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Esto se ejecuta cuando el servidor arranca
+    with open(BASE / config.RUTA_MODELO, "rb") as fh:
+        app.state.modelo = pickle.load(fh)
+    print("Modelo cargado al inicio")
+    yield
+    # (Opcional) lo que quieras hacer al apagar
+    print("Apagando servidor...")
+
+app = FastAPI(title="Riesgo API", version="0.1.0", lifespan=lifespan)
 
 @app.get("/health")
 async def health_check():
@@ -20,7 +33,7 @@ async def health_check():
     return {"status": "ok", "version": app.version}
 
 @app.post("/score")
-async def score(payload: dict):
+async def score(payload: dict, request: Request):
     if "poliza" not in payload:
         return {"error": "falta el campo poliza"}
 
@@ -29,8 +42,8 @@ async def score(payload: dict):
     if payload.get("antiguedad", 0) < 0:
         return {"error": "la antigüedad no puede ser negativa"}
 
-    with open(BASE / config.RUTA_MODELO, "rb") as fh:
-        modelo = pickle.load(fh)
+    # El modelo ya está cargado en memoria, lo recuperamos de app.state
+    modelo = request.app.state.modelo
 
     evaluador = EvaluadorRiesgo(payload["poliza"])
     puntaje = evaluador.puntuar(modelo, payload)
