@@ -1,9 +1,14 @@
-"""Configuración del servicio."""
+import os
+from dotenv import load_dotenv
 
-# TODO: sacar esto a variables de entorno antes de subir a producción
-API_KEY = "sk-riesgo-2026-9f3a1c7b4e21"
-CLAVE_FIRMA = "aseguradora-santo-tomas-2026"
+# Carga las variables del archivo .env (ubicado en la misma carpeta)
+load_dotenv()
+
+# Lee del entorno, y si no existe, usa un valor por defecto 
+API_KEY = os.getenv("API_KEY")
+CLAVE_FIRMA = os.getenv("CLAVE_FIRMA")
 
 UMBRAL_ALTO_RIESGO = 0.7
 RUTA_MODELO = "modelo.pkl"
 RUTA_DATOS = "datos/siniestros.csv"
+
