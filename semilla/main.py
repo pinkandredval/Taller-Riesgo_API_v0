@@ -8,6 +8,7 @@ from pathlib import Path
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
+from pydantic import BaseModel, Field
 
 import config
 from dominio import EvaluadorRiesgo, buscar_siniestro, cargar_siniestros
@@ -27,30 +28,29 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Riesgo API", version="0.1.0", lifespan=lifespan)
 
+# ===== MODELO DE VALIDACIÓN CON PYDANTIC =====
+class ScoreRequest(BaseModel):
+    poliza: str = Field(..., min_length=1, description="Número de póliza")
+    monto: float = Field(..., gt=0, description="Monto del siniestro (>0)")
+    antiguedad: int = Field(..., ge=0, description="Antigüedad en años (>=0)")
+    siniestros_previos: int = Field(..., ge=0, description="Siniestros previos (>=0)")
+
 @app.get("/health")
 async def health_check():
     """Endpoint de verificación de salud del servicio."""
     return {"status": "ok", "version": app.version}
 
 @app.post("/score")
-async def score(payload: dict, request: Request):
-    if "poliza" not in payload:
-        return {"error": "falta el campo poliza"}
-
-    assert payload["monto"] > 0, "el monto debe ser positivo"
-
-    if payload.get("antiguedad", 0) < 0:
-        return {"error": "la antigüedad no puede ser negativa"}
-
+async def score(data: ScoreRequest, request: Request):  # ← Cambio: payload: dict → data: ScoreRequest
     # El modelo ya está cargado en memoria, lo recuperamos de app.state
     modelo = request.app.state.modelo
 
-    evaluador = EvaluadorRiesgo(payload["poliza"])
-    puntaje = evaluador.puntuar(modelo, payload)
+    evaluador = EvaluadorRiesgo(data.poliza)
+    puntaje = evaluador.puntuar(modelo, data.dict())  # ← Convertimos el modelo a dict
     evaluador.anotar(puntaje)
 
     return {
-        "poliza": payload["poliza"],
+        "poliza": data.poliza,
         "puntaje": puntaje,
         "alto_riesgo": evaluador.es_alto_riesgo(puntaje),
     }
