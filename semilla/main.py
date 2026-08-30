@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException 
 from pydantic import BaseModel, Field
 
 import config
@@ -65,15 +65,14 @@ async def historial():
 async def siniestro(id_siniestro: int):
     fila = buscar_siniestro(id_siniestro)
     if fila is None:
-        return {"error": f"no existe el siniestro {id_siniestro}"}
+        raise HTTPException(status_code=404, detail=f"no existe el siniestro {id_siniestro}")
     return fila
 
 
 @app.get("/exportar")
 async def exportar():
     datos = cargar_siniestros()
-    return Response(pickle.dumps(datos), media_type="application/octet-stream")
-
+    return datos
 
 # --- Endpoints de perfil de carga -----------------------------------------
 
