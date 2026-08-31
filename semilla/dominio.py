@@ -10,12 +10,11 @@ BASE = Path(__file__).parent
 
 class EvaluadorRiesgo:
     """Evalúa el riesgo de una póliza y guarda lo que ha evaluado."""
-
-    historial = []
     umbral = config.UMBRAL_ALTO_RIESGO
 
     def __init__(self, poliza):
         self.poliza = poliza
+        self.historial = []
 
     @con_registro
     def puntuar(self, modelo, payload):
@@ -33,13 +32,19 @@ class EvaluadorRiesgo:
         return puntaje is not None and puntaje > self.umbral
 
 
-def cargar_siniestros():
-    with open(BASE / config.RUTA_DATOS, encoding="utf-8") as fh:
-        return list(csv.DictReader(fh))
+###agregado para cumplir B4
+class RepositorioSiniestros:
+    """Repositorio para acceder a los datos de siniestros."""
 
+    def __init__(self, ruta_csv):
+        self.ruta_csv = ruta_csv
 
-def buscar_siniestro(id_siniestro):
-    for fila in cargar_siniestros():
-        if fila["id"] == str(id_siniestro):
-            return fila
-    return None
+    def cargar_todos(self):
+        with open(self.ruta_csv, encoding="utf-8") as fh:
+            return list(csv.DictReader(fh))
+
+    def buscar_por_id(self, id_siniestro):
+        for fila in self.cargar_todos():
+            if fila["id"] == str(id_siniestro):
+                return fila
+        return None
