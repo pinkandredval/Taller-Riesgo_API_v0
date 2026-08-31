@@ -8,7 +8,7 @@ from pathlib import Path
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 import config
 from dominio import EvaluadorRiesgo, RepositorioSiniestros
@@ -37,18 +37,58 @@ class ScoreRequest(BaseModel):
     antiguedad: int = Field(..., ge=0, description="Antigüedad en años (>=0)")
     siniestros_previos: int = Field(..., ge=0, description="Siniestros previos (>=0)")
 
-@app.get("/health")
+    # --- NUEVO: VALIDADOR PARA NORMALIZAR LA PÓLIZA ---
+    @field_validator('poliza')
+    @classmethod
+    def normalizar_poliza(cls, v: str) -> str:
+        """Elimina espacios al inicio/final y convierte a mayúsculas."""
+        return v.strip().upper()
+
+# ===== MODELOS DE SALIDA (RESPUESTAS) =====
+class EvaluacionItem(BaseModel):
+    """Elemento individual del historial de evaluaciones."""
+    poliza: str
+    puntaje: float | None
+
+class HistorialResponse(BaseModel):
+    """Respuesta del endpoint /historial."""
+    evaluaciones: list[EvaluacionItem]
+
+class ScoreResponse(BaseModel):
+    """Respuesta del endpoint /score."""
+    poliza: str
+    puntaje: float | None
+    alto_riesgo: bool
+
+class HealthResponse(BaseModel):
+    """Respuesta del endpoint /health."""
+    status: str
+    version: str
+
+class SiniestroResponse(BaseModel):
+    """Respuesta del endpoint /siniestros/{id}."""
+    id: str
+    poliza: str
+    monto: str
+    fecha: str
+    model_config = ConfigDict(extra='allow')  # Permite columnas extra del CSV
+
+class PingResponse(BaseModel):
+    """Respuesta del endpoint /ping."""
+    pong: bool
+
+@app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Endpoint de verificación de salud del servicio."""
     return {"status": "ok", "version": app.version}
 
-@app.post("/score")
+@app.post("/score", response_model=ScoreResponse)
 async def score(data: ScoreRequest, request: Request):  # ← Cambio: payload: dict → data: ScoreRequest
     # El modelo ya está cargado en memoria, lo recuperamos de app.state
     modelo = request.app.state.modelo
 
     evaluador = EvaluadorRiesgo(data.poliza)
-    puntaje = evaluador.puntuar(modelo, data.dict())  # ← Convertimos el modelo a dict
+    puntaje = evaluador.puntuar(modelo,  data.model_dump())  # ← Convertimos el modelo a dict
     evaluador.anotar(puntaje)
 
     request.app.state.historial.append({
@@ -62,12 +102,12 @@ async def score(data: ScoreRequest, request: Request):  # ← Cambio: payload: d
     }
 
 
-@app.get("/historial")
+@app.get("/historial", response_model=HistorialResponse)
 async def historial(request: Request):
     return {"evaluaciones":  request.app.state.historial}
 
 
-@app.get("/siniestros/{id_siniestro}")
+@app.get("/siniestros/{id_siniestro}", response_model=SiniestroResponse)
 async def siniestro(id_siniestro: int, request: Request):
     fila = request.app.state.repositorio.buscar_por_id(id_siniestro)
     if fila is None:
@@ -75,14 +115,14 @@ async def siniestro(id_siniestro: int, request: Request):
     return fila
 
 
-@app.get("/exportar")
+@app.get("/exportar", response_model=list[SiniestroResponse])
 async def exportar(request: Request):
     datos = request.app.state.repositorio.cargar_todos()
     return datos
 
 # --- Endpoints de perfil de carga -----------------------------------------
 
-@app.get("/ping")
+@app.get("/ping", response_model=PingResponse)
 async def ping():
     return {"pong": True}
 
