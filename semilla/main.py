@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request, HTTPException
 from pydantic import BaseModel, Field
 
 import config
-from dominio import EvaluadorRiesgo, buscar_siniestro, cargar_siniestros
+from dominio import EvaluadorRiesgo, RepositorioSiniestros
 
 BASE = Path(__file__).parent
 
@@ -21,6 +21,8 @@ async def lifespan(app: FastAPI):
     # Esto se ejecuta cuando el servidor arranca
     with open(BASE / config.RUTA_MODELO, "rb") as fh:
         app.state.modelo = pickle.load(fh)
+    app.state.repositorio = RepositorioSiniestros(BASE / config.RUTA_DATOS)
+     app.state.historial = []
     print("Modelo cargado al inicio")
     yield
     # (Opcional) lo que quieras hacer al apagar
@@ -49,6 +51,10 @@ async def score(data: ScoreRequest, request: Request):  # ← Cambio: payload: d
     puntaje = evaluador.puntuar(modelo, data.dict())  # ← Convertimos el modelo a dict
     evaluador.anotar(puntaje)
 
+    request.app.state.historial.append({
+        "poliza": data.poliza,
+        "puntaje": puntaje
+    })
     return {
         "poliza": data.poliza,
         "puntaje": puntaje,
@@ -57,21 +63,21 @@ async def score(data: ScoreRequest, request: Request):  # ← Cambio: payload: d
 
 
 @app.get("/historial")
-async def historial():
-    return {"evaluaciones": EvaluadorRiesgo.historial}
+async def historial(request: Request):
+    return {"evaluaciones":  request.app.state.historial}
 
 
 @app.get("/siniestros/{id_siniestro}")
-async def siniestro(id_siniestro: int):
-    fila = buscar_siniestro(id_siniestro)
+async def siniestro(id_siniestro: int, request: Request):
+    fila = request.app.state.repositorio.buscar_por_id(id_siniestro)
     if fila is None:
         raise HTTPException(status_code=404, detail=f"no existe el siniestro {id_siniestro}")
     return fila
 
 
 @app.get("/exportar")
-async def exportar():
-    datos = cargar_siniestros()
+async def exportar(request: Request):
+    datos = request.app.state.repositorio.cargar_todos()
     return datos
 
 # --- Endpoints de perfil de carga -----------------------------------------
