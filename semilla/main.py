@@ -70,7 +70,9 @@ class SiniestroResponse(BaseModel):
     id: str
     poliza: str
     monto: str
-    fecha: str
+    antiguedad: str
+    siniestros_previos: str
+    pago_alto: str
     model_config = ConfigDict(extra='allow')  # Permite columnas extra del CSV
 
 class PingResponse(BaseModel):
