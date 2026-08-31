@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
     with open(BASE / config.RUTA_MODELO, "rb") as fh:
         app.state.modelo = pickle.load(fh)
     app.state.repositorio = RepositorioSiniestros(BASE / config.RUTA_DATOS)
-     app.state.historial = []
+    app.state.historial = []
     print("Modelo cargado al inicio")
     yield
     # (Opcional) lo que quieras hacer al apagar
