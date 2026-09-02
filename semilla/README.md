@@ -15,11 +15,9 @@ El modelo entrenado (`modelo.pkl`) viene en el repositorio.
 ## Puesta en marcha
 
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
 ```
-
-El mismo comando sirve en el servidor de producción. `--reload` es cómodo
-porque recoge los cambios sin reiniciar a mano.
+**Nota:** Para desarrollo local, puedes usar `--reload` para recarga automática, pero **nunca** en producción.
 
 ## Endpoints
 
