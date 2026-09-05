@@ -125,24 +125,24 @@ async def exportar(request: Request):
 # --- Endpoints de perfil de carga -----------------------------------------
 
 @app.get("/ping", response_model=PingResponse)
-async def ping():
+def ping():
     return {"pong": True}
 
 
 @app.get("/consulta-archivo")
-async def consulta_archivo():
+def consulta_archivo():
     contenido = (BASE / config.RUTA_DATOS).read_text(encoding="utf-8")
     return {"lineas": len(contenido.splitlines())}
 
 
 @app.get("/servicio-externo")
-async def servicio_externo():
+def servicio_externo():
     time.sleep(0.3)
     return {"tarifa_referencia": 1.18}
 
 
 @app.get("/calculo-pesado")
-async def calculo_pesado():
+def calculo_pesado():
     total = 0.0
     for i in range(3_000_000):
         total += (i % 7) ** 0.5
