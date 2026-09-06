@@ -18,14 +18,24 @@ BASE = Path(__file__).parent
 # ===== Carga del modelo UNA SOLA VEZ al arrancar =====
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Esto se ejecuta cuando el servidor arranca
-    with open(BASE / config.RUTA_MODELO, "rb") as fh:
-        app.state.modelo = pickle.load(fh)
-    app.state.repositorio = RepositorioSiniestros(BASE / config.RUTA_DATOS)
+    print(">>> INICIO DE LIFESPAN")  # ← Para ver si llega
+    try:
+        with open(BASE / config.RUTA_MODELO, "rb") as fh:
+            app.state.modelo = pickle.load(fh)
+        print("Modelo cargado correctamente")
+    except Exception as e:
+        print(f"ERROR al cargar modelo: {e}")
+        app.state.modelo = None
+
+    try:
+        app.state.repositorio = RepositorioSiniestros(BASE / config.RUTA_DATOS)
+        print("Repositorio cargado correctamente")
+    except Exception as e:
+        print(f"ERROR al cargar repositorio: {e}")
+        app.state.repositorio = None
+
     app.state.historial = []
-    print("Modelo cargado al inicio")
     yield
-    # (Opcional) lo que quieras hacer al apagar
     print("Apagando servidor...")
 
 app = FastAPI(title="Riesgo API", version="0.1.0", lifespan=lifespan)
@@ -147,6 +157,29 @@ def calculo_pesado():
     for i in range(3_000_000):
         total += (i % 7) ** 0.5
     return {"total": round(total, 2)}
+
+
+# ===== CARGA MANUAL PARA TESTS (si lifespan no se ejecuta) =====
+if not hasattr(app.state, "modelo"):
+    try:
+        with open(BASE / config.RUTA_MODELO, "rb") as fh:
+            app.state.modelo = pickle.load(fh)
+        print("Modelo cargado manualmente para tests")
+    except Exception as e:
+        print(f"ERROR al cargar modelo manualmente: {e}")
+        app.state.modelo = None
+
+if not hasattr(app.state, "repositorio"):
+    try:
+        app.state.repositorio = RepositorioSiniestros(BASE / config.RUTA_DATOS)
+        print("Repositorio cargado manualmente para tests")
+    except Exception as e:
+        print(f"ERROR al cargar repositorio manualmente: {e}")
+        app.state.repositorio = None
+
+if not hasattr(app.state, "historial"):
+    app.state.historial = []
+
 
 
 if __name__ == "__main__":
